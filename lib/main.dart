@@ -1,119 +1,56 @@
-import 'dart:io';
-
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:timezone/data/latest.dart' as tz;
-import 'package:timezone/timezone.dart' as tz;
 
-void main() {
-  runApp(Screen());
+import 'package:get/get.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:wakeuprecord/screens/screen_login.dart';
+import 'package:wakeuprecord/screens/screen_main.dart';
+
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    // options: const FirebaseOptions(
+    //     apiKey: 'AIzaSyC1U5zudqsAz8iSTt7t50mOKs4D42oWWPw',
+    //     appId: 'com.example.wakeup_web',  // com.example.self_check <- 로 지정하면 Android App Name과 같아서 에러 나타남
+    //     projectId: 'self-check-952f6',
+    //     messagingSenderId: 'Sender_Ansang'
+    // )
+    //Todo : messagingSenderId 의 기능 파악하기
+  );
+
+  runApp(const ScreenManage());
 }
 
-class Screen extends StatefulWidget {
-  Screen({Key? key}) : super(key: key);
+class ScreenManage extends StatelessWidget {
+  const ScreenManage({Key? key}) : super(key: key);
 
-  @override _ScreenState createState() => _ScreenState();
-}
-class _ScreenState extends State<Screen> {
-  Notification noti = Notification();
-  String text = '';
-  Color color = Colors.white;
-
+  // This widget is the root of your application.
   @override
-  void initState() {
-    noti.initNotiSetting();
-    for (int i = 0; i < 1; i++) {
-      noti.dailyAtTimeNotification(i);
-      text += '$i 번째 알람 실행\n';
-    }
-    super.initState();
+  Widget build(BuildContext context) {
+    return const GetMaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'WakeUp Alarm',
+      color: Colors.black,
+      home: Authentication(),
+    );
   }
+}
+
+class Authentication extends StatelessWidget {
+  const Authentication({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return Container();
-  }
-}
-
-
-
-class Notification {
-  final plugin = FlutterLocalNotificationsPlugin();
-
-  /// init Notification
-  void initNotiSetting() async {
-    const initSettingsAndroid = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const initSettingsIOS = IOSInitializationSettings(
-        requestSoundPermission: true,
-        requestBadgePermission: true,
-        requestAlertPermission: true
+    return StreamBuilder(
+        stream: FirebaseAuth.instance.authStateChanges(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const ScreenLogin();
+          } else {
+            return const ScreenMain();
+          }
+        }
     );
-    const initSettings = InitializationSettings(
-      android: initSettingsAndroid,
-      iOS: initSettingsIOS,
-    );
-    await plugin.initialize( initSettings, onSelectNotification: onSelectNotification );
-  }
-
-  Future dailyAtTimeNotification(int index) async {
-    if (Platform.isIOS) {
-      final bool? result = await plugin
-          .resolvePlatformSpecificImplementation<
-          IOSFlutterLocalNotificationsPlugin>()
-          ?.requestPermissions(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
-
-      if (result != null && result) {
-        await plugin
-            .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-            ?.deleteNotificationChannelGroup(index.toString());
-      }
-    }
-
-    var android = AndroidNotificationDetails(
-      index.toString(),
-      'title',
-      channelDescription: 'description',
-      importance: Importance.max,
-      playSound: true,
-      sound: const RawResourceAndroidNotificationSound('sound'),
-      priority: Priority.max,
-
-    );
-    const ios = IOSNotificationDetails(
-        sound: 'sound.wav'
-    );
-    var detail = NotificationDetails(android: android, iOS: ios);
-
-    tz.initializeTimeZones();
-    tz.setLocalLocation(tz.getLocation('Asia/Seoul'));
-    final now = tz.TZDateTime.now(tz.local);
-    final alarm = tz.TZDateTime(tz.local, now.year, now.month, now.day, now.hour, now.minute, now.second + 5);
-
-    await plugin.zonedSchedule(
-        index,
-        '',
-        'notiDesc',
-        alarm,
-        detail,
-        androidAllowWhileIdle: true,
-        uiLocalNotificationDateInterpretation:
-        UILocalNotificationDateInterpretation.absoluteTime,
-        matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime
-    );
-  }
-
-
-  Future onDidReceiveLocalNotification(int id, String? title, String? body, String? payload) async {
-    print('눌러짐');
-  }
-
-  /// notification 눌렀을때
-  Future onSelectNotification(String? payload) async {
-    print('눌러짐');
   }
 }
